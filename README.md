@@ -11,8 +11,8 @@ A lightweight AI chatbot built with DeepSeek-R1-Distill-Qwen-1.5B model, designe
 
 🚀 Installation
 My Environment:
-# Windows 11 pro, CPU: Intel(R) Core(TM) i5-8365U CPU, RAM 16G
-# VM in VMWare Workstation: 4C/8G/50G Ubuntu
+Windows 11 pro, CPU: Intel(R) Core(TM) i5-8365U CPU, RAM 16G
+VM in VMWare Workstation: 4C/8G/50G Ubuntu
 
 Clone the repository:
 git clone https://github.com/dalu810/deepseek-chatbot.git
