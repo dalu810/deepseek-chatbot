@@ -31,13 +31,13 @@ In test folder:
 - deepseek_chatting.py	
 
 #Start chatbot: 
-uvicorn test.deepseek_api:app --host 0.0.0.0 --port 8000
+uvicorn test.deepseek_remote:app --host 0.0.0.0 --port 8000
 
 #Test remotely, query example:
 curl -X POST "http://<SERVER_IP>:8000/chat/" \
      -H "Content-Type: application/json" \
      -d '{"prompt": "What is AI?"}'
-- deepseek_api.py
+- deepseek_remote.py
 
 
 📝 Notes
