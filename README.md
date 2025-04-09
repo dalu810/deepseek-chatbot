@@ -23,6 +23,19 @@ Install dependencies:
 
 
 🛠 Usage
+
+deepseek-chatbot/
+│
+├── chatbot/
+│   ├── chatbot.py
+│   └── static/
+├── test/
+│   ├── deepseek_testing.py
+│   ├── deepseek_chatting.py
+│   └── test.deepseek_remote.py
+└── websocket/
+    └── fastapi_websocket.py
+
 In test folder:
 #Local model testing with hardcoded queries
 - deepseek_testing.py	
@@ -30,14 +43,24 @@ In test folder:
 #Local model testing, interactive CLI chat
 - deepseek_chatting.py	
 
-#Start chatbot: 
-uvicorn test.deepseek_remote:app --host 0.0.0.0 --port 8000
+#Remote: 
+uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
 
 #Test remotely, query example:
 curl -X POST "http://<SERVER_IP>:8000/chat/" \
      -H "Content-Type: application/json" \
      -d '{"prompt": "What is AI?"}'
 - deepseek_remote.py
+
+In websocket folder
+#Multiple users synchronization
+server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
+client: websocat ws://localhost:8000/chat
+
+In chatbot folder
+#Chatbot with browser
+server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
+client: http://<server IP>:8000/chatbot/static/chat.html
 
 
 📝 Notes
