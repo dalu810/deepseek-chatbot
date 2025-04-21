@@ -16,7 +16,14 @@ function sendMessage() {
 }
 
 ws.onmessage = (event) => {
-    displayMessage(event.data, "ai");
+    const message = event.data.trim();
+
+    if (message === "[END]") {
+        // Optionally hide loading spinner or do nothing
+        return;
+    }
+
+    displayMessage(message, "ai");
 };
 
 function displayMessage(text, sender) {
