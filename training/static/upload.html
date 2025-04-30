@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Training Material Upload</title>
+  <link rel="stylesheet" href="/training/static/styles.css" />
+</head>
+<body>
+  <h1>Training Material Upload</h1>
+
+  <div class="upload-controls">
+    <input type="file" id="csv-file" accept=".csv" />
+    <button onclick="uploadCSV()">Upload</button>
+  </div>
+
+  <div id="upload-result" class="upload-result"></div>
+
+  <div class="delete-controls">
+    <input type="checkbox" id="select-all" onclick="toggleSelectAll(this)">
+    <label for="select-all">Select All</label>
+    <button onclick="deleteSelected()">Delete Selected</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>ID</th>
+        <th>Question</th>
+        <th>Answer</th>
+        <th>Updated At</th>
+      </tr>
+    </thead>
+    <tbody id="material-table"></tbody>
+  </table>
+
+  <script src="/training/static/training.js"></script>
+</body>
+</html>
