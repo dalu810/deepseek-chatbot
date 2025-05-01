@@ -16,7 +16,8 @@ import logging
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
 # Load environment variables
-load_dotenv()
+env_path = Path(__file__).resolve().parent.parent / "configuration" / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Initialize DB connection
 DATABASE_URL = os.getenv("DATABASE_URL")

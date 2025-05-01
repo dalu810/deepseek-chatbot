@@ -26,6 +26,14 @@ Usage
 
 deepseek-chatbot/
 
+- admin/
+  - static/
+  - admin_dashboard.py
+- training/
+  - static/
+  - training_dashboard.py
+- configuration/
+  - .env
 - chatbot/
   - static/
   - chatbot.py
@@ -68,6 +76,13 @@ Chatbot with PostgreSQL
 server: python3 chatbot_db.py
 client: http://<server IP>:8000/chatbot/static/chat.html
 
+In admin folder
+server: uvicorn admin_dashboard:app --host 0.0.0.0 --port 8020
+browser: http://<server IP>:8010/admin/static/dashboard.html
+
+In training folder
+server: uvicorn training_dashboard:app --host 0.0.0.0 --port 8020
+browser: http://<server IP>:8020/training/static/upload.html
 
 Notes
 The model DeepSeek-R1-Distill-Qwen-1.5B is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.

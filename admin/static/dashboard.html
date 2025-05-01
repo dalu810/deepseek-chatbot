@@ -1,33 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Chat Logs Viewer</title>
-  <link rel="stylesheet" href="/admin/static/styles.css">
+  <link rel="stylesheet" href="/admin/static/styles.css" />
 </head>
 <body>
   <h1>Chat Logs Viewer</h1>
 
   <div class="filters">
     <label for="session-id">Session ID:</label>
-    <input type="text" id="session-id" placeholder="Enter session ID">
+    <input type="text" id="session-id" placeholder="Enter session ID" />
     <button onclick="searchBySession()">Search</button>
     <button onclick="resetFilters()">Reset</button>
   </div>
 
   <div class="filters">
-    <label for="start-time">From Time:</label>
-    <input type="datetime-local" id="start-time">
-    <label for="end-time">To Time:</label>
-    <input type="datetime-local" id="end-time">
+    <label for="start-time">From:</label>
+    <input type="datetime-local" id="start-time" />
+    <label for="end-time">To:</label>
+    <input type="datetime-local" id="end-time" />
     <button onclick="searchByTime()">Search</button>
-    <button onclick="resetTime()">Reset Time</button>
+    <button onclick="resetTime()">Reset</button>
   </div>
 
   <div class="delete-controls">
-    <input type="checkbox" id="select-all" onclick="selectAll()">
+    <input type="checkbox" id="select-all" onclick="selectAll()" />
     <label for="select-all">Select All</label>
     <button onclick="deleteSelected()">Delete Selected</button>
+
+    <span style="float: right;">
+      <input type="checkbox" id="retention-toggle" onchange="updateRetention()" />
+      Auto-delete logs older than 
+      <input type="number" id="retention-days" value="30" style="width: 60px;" onchange="updateRetention()" />
+      days
+    </span>
   </div>
 
   <table>
