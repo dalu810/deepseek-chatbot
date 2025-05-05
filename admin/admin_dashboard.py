@@ -118,3 +118,9 @@ async def update_retention(request: Request):
     """, (str(days),))
     conn.commit()
     return {"message": f"Retention updated to {days} days."}
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.getenv("PORT", 8010))
+    uvicorn.run("admin_dashboard:app", host="0.0.0.0", port=port, reload=True)

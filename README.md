@@ -1,6 +1,7 @@
 
-# DeepSeek Chatbot
-A lightweight AI chatbot built with DeepSeek-R1-Distill-Qwen-1.5B model, designed for easy deployment and testing—even on systems without GPU support.
+# LLM Chatbot
+- A lightweight AI chatbot built with LLM, designed for easy deployment and testing—even on systems without GPU support.
+- Recently model used: DeepSeek-R1-Distill-Qwen-1.5B 
 
 Features
 - Local & GPU-Free Inference – Runs efficiently on CPU-only environments for testing.
@@ -16,7 +17,7 @@ My Environment:
 - VM in VMWare Workstation: 4C/8G/50G Ubuntu
 
 Clone the repository:
-git clone https://github.com/dalu810/deepseek-chatbot.git
+git clone https://github.com/dalu810/LLM-Chatbot.git
 
 Install dependencies:
 (Include a requirements.txt or instructions for pip/poetry if applicable.)
@@ -24,14 +25,14 @@ Install dependencies:
 
 Usage
 
-deepseek-chatbot/
+LLM-Chatbot/
 
 - admin/
   - static/
   - admin_dashboard.py
-- training/
+- upload/
   - static/
-  - training_dashboard.py
+  - upload_dashboard.py
 - configuration/
   - .env
 - chatbot/
@@ -53,7 +54,7 @@ Local model testing, interactive CLI chat
 - deepseek_chatting.py	
 
 Remote: 
-uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
+- uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
 
 Test remotely, query example:
 curl -X POST "http://<SERVER_IP>:8000/chat/" \
@@ -62,27 +63,28 @@ curl -X POST "http://<SERVER_IP>:8000/chat/" \
 - deepseek_remote.py
 
 In websocket folder
-#Multiple users synchronization
-server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
-client: websocat ws://localhost:8000/chat
+- server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
+- client: websocat ws://localhost:8000/chat
 
 In chatbot folder
 
-Chatbot with browser
-server: python3 chatbot.py
-client: http://<server IP>:8000/chatbot/static/chat.html
+Chatbot without database
+- server: python3 chatbot.py
+- browser: http://server_IP:8000/chatbot/static/chat.html
 
 Chatbot with PostgreSQL
-server: python3 chatbot_db.py
-client: http://<server IP>:8000/chatbot/static/chat.html
+- server: python3 chatbot_db.py
+- browser: http://server_IP:8000/chatbot/static/chat.html
 
 In admin folder
-server: uvicorn admin_dashboard:app --host 0.0.0.0 --port 8020
-browser: http://<server IP>:8010/admin/static/dashboard.html
+- server: python3 admin_dashboard.py
+- browser: http://server_IP:8010/admin/static/dashboard.html
 
-In training folder
-server: uvicorn training_dashboard:app --host 0.0.0.0 --port 8020
-browser: http://<server IP>:8020/training/static/upload.html
+In upload folder
+- server: python3 upload_dashboard.py
+- browser: http://server_IP:8020/upload/static/upload.html
+
+
 
 Notes
 The model DeepSeek-R1-Distill-Qwen-1.5B is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.

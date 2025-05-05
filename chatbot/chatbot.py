@@ -1,92 +1,83 @@
+import os
+import gc
+import uuid
+import torch
+import asyncio
+import re
+from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from starlette.concurrency import run_in_threadpool
-import torch
-import uuid
-import gc
-import asyncio
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-app = FastAPI()
+# Initialize FastAPI app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("App starting up...")
+    yield
+    print("App shutting down...")
 
-# Static file mount
-app.mount("/chatbot/static", StaticFiles(directory="static"), name="static")
+app = FastAPI(lifespan=lifespan)
 
-# Enable CORS if needed (browser access)
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; restrict in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Model config
+# Serve static UI if needed
+app.mount("/chatbot/static", StaticFiles(directory="static"), name="static")
+
+# Load model and tokenizer
 MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     torch_dtype=torch.float16,
-    device_map=None  # CPU-only
+    device_map=None
 )
+
 device = torch.device("cpu")
 model.to(device)
 
-# Session state
-MAX_HISTORY = 3
+# Locks and chat state
 chat_histories = {}
-model_lock = torch.Lock() if hasattr(torch, "Lock") else asyncio.Lock()
+MAX_HISTORY = 3
+model_lock = asyncio.Lock()
 
-@app.websocket("/chat")
-async def chat(websocket: WebSocket):
-    await websocket.accept()
-    session_id = str(uuid.uuid4())
-    print(f"[{session_id}] Connected")
-    system_prompt = (
-        "You are a helpful AI assistant. Answer the user's question concisely and accurately. "
-        "Do not explain your reasoning or thought process. Just provide the answer."
-    )
-    chat_histories[session_id] = [f"System: {system_prompt}"]
+# Clean up AI output
+def clean_response(raw: str) -> str:
+    response = raw.split("Assistant:")[-1].strip()
 
-    try:
-        while True:
-            user_input = await websocket.receive_text()
-            print(f"[{session_id}] User: {user_input}")
+    # Remove XML-style tags like </think>
+    response = re.sub(r"<.*?>", "", response)
 
-            # Update per-session history (FIFO)
-            chat_histories[session_id].append(f"User: {user_input}")
-            if len(chat_histories[session_id]) > (MAX_HISTORY * 2 + 1):
-                chat_histories[session_id] = [chat_histories[session_id][0]] + chat_histories[session_id][-MAX_HISTORY * 2:]
+    # Remove hallucinated dialog continuation
+    response = re.split(r"\b(User:|Assistant:)\b", response)[0].strip()
 
-            # Format input
-            context = "\n".join(chat_histories[session_id]) + "\nAssistant:"
+    # Remove filler/thinking phrases
+    response = re.sub(
+        r'(?i)\b(Hmm|Wait|Let me think|I think|Maybe|Possibly|Alternatively|Should I|Now I need to|So|Alright|Anyway)\b.*',
+        '',
+        response
+    ).strip()
 
-            # Generate in thread-safe, non-blocking fashion
-            async with model_lock:
-                response = await run_in_threadpool(generate_response, context)
+    # Keep only the first 1-2 sentences
+    sentences = re.split(r'(?<=[.!?]) +', response)
+    response = " ".join(sentences[:2]).strip()
 
-            chat_histories[session_id].append(f"Assistant: {response}")
-            print(f"[{session_id}] Assistant: {response}")
+    if not response.endswith(('.', '!', '?')):
+        response += '.'
 
-            # Send response in parts
-            for line in response.split("\n"):
-                if line.strip():
-                    await websocket.send_text(line.strip())
-            await websocket.send_text("[END]")
+    return response
 
-            gc.collect()
-
-    except WebSocketDisconnect:
-        print(f"[{session_id}] Disconnected")
-        chat_histories.pop(session_id, None)
-        gc.collect()
-    except Exception as e:
-        print(f"[{session_id}] WebSocket error: {e}")
-        await websocket.close()
-        chat_histories.pop(session_id, None)
-        gc.collect()
-
+# Generate model response
 def generate_response(context: str) -> str:
     inputs = tokenizer(context, return_tensors="pt").to(device)
     outputs = model.generate(
@@ -99,16 +90,55 @@ def generate_response(context: str) -> str:
         pad_token_id=tokenizer.eos_token_id
     )
     decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-    # Extract clean assistant response
-    if "Assistant:" in decoded:
-        response = decoded.split("Assistant:")[-1].strip()
-    else:
-        response = decoded.strip()
-
-    # Remove any trailing tags or hallucinations
-    response = response.split("</think>")[-1].strip()
-
-    del inputs, outputs, decoded
+    del inputs, outputs
     gc.collect()
-    return response
+    return clean_response(decoded)
+
+# WebSocket chat endpoint
+@app.websocket("/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    session_id = str(uuid.uuid4())
+    print(f"[{session_id}] Connected at {datetime.now().isoformat()}")
+
+    system_prompt = (
+        "You are a helpful AI assistant. Answer the user's question concisely and accurately. "
+        "Do not explain your reasoning or thought process. Just provide the answer."
+    )
+    chat_histories[session_id] = [f"System: {system_prompt}"]
+
+    try:
+        while True:
+            user_input = await websocket.receive_text()
+            print(f"[{session_id}] User: {user_input}")
+
+            chat_histories[session_id].append(f"User: {user_input}")
+            if len(chat_histories[session_id]) > (MAX_HISTORY * 2 + 1):
+                chat_histories[session_id] = [chat_histories[session_id][0]] + chat_histories[session_id][-MAX_HISTORY * 2:]
+
+            context = "\n".join(chat_histories[session_id]) + "\nAssistant:"
+
+            async with model_lock:
+                response = await run_in_threadpool(generate_response, context)
+
+            chat_histories[session_id].append(f"Assistant: {response}")
+            print(f"[{session_id}] Assistant: {response}")
+
+            await websocket.send_text(response)
+            await websocket.send_text("[END]")
+
+            gc.collect()
+
+    except WebSocketDisconnect:
+        print(f"[{session_id}] Disconnected at {datetime.now().isoformat()}")
+        chat_histories.pop(session_id, None)
+        gc.collect()
+    except Exception as e:
+        print(f"[{session_id}] WebSocket error: {e}")
+        await websocket.close()
+        chat_histories.pop(session_id, None)
+        gc.collect()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

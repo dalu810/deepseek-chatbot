@@ -4,6 +4,7 @@ import uuid
 import torch
 import asyncio
 import databases
+import re
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -13,8 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from starlette.concurrency import run_in_threadpool
 import logging
+from pathlib import Path
 
 logging.getLogger("transformers").setLevel(logging.ERROR)
+
 # Load environment variables
 env_path = Path(__file__).resolve().parent.parent / "configuration" / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -36,7 +39,6 @@ CREATE TABLE IF NOT EXISTS chat_logs (
 );
 """
 
-# Modern FastAPI lifespan handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("App starting up...")
@@ -51,7 +53,7 @@ app = FastAPI(lifespan=lifespan)
 # Serve static files
 app.mount("/chatbot/static", StaticFiles(directory="static"), name="static")
 
-# Allow cross-origin requests
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -60,23 +62,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load tokenizer and model (CPU only)
+# Load model
 MODEL_NAME = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
-    torch_dtype=torch.float16,  # still safe on CPU
+    torch_dtype=torch.float16,
     device_map=None
 )
 device = torch.device("cpu")
 model.to(device)
 
-# Shared memory structures
 chat_histories = {}
 MAX_HISTORY = 3
 model_lock = torch.Lock() if hasattr(torch, "Lock") else asyncio.Lock()
 
-# Store chat log
 async def log_chat(session_id: str, user_message: str, ai_response: str):
     await database.execute(
         """
@@ -90,32 +90,49 @@ async def log_chat(session_id: str, user_message: str, ai_response: str):
         }
     )
 
-# Inference logic
+# Enhanced response generator
 def generate_response(context: str) -> str:
     inputs = tokenizer(context, return_tensors="pt").to(device)
     outputs = model.generate(
         **inputs,
-        max_new_tokens=256,
+        max_new_tokens=100,
         do_sample=True,
-        temperature=0.7,
-        top_p=0.9,
-        repetition_penalty=1.2,
+        temperature=0.5,
+        top_p=0.8,
+        repetition_penalty=1.4,
         pad_token_id=tokenizer.eos_token_id
     )
     decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    # Extract clean assistant response
-    response = decoded.split("Assistant:")[-1].strip() if "Assistant:" in decoded else decoded.strip()
-    response = response.split("</think>")[-1].strip()
+    # Extract clean assistant reply
+    response = decoded.split("Assistant:")[-1].strip()
 
-    if response and not response[-1] in {".", "!", "?"}:
-        response = response.rsplit(".", 1)[0] + "." if "." in response else response + "."
+    # Remove tags
+    response = re.sub(r"<.*?>", "", response)
+    
+    # Cut off anything after the next user message or hallucination
+    response = re.split(r"\b(User:|Assistant:)\b", response)[0].strip()
 
-    del inputs, outputs, decoded
-    gc.collect()
+    # Remove 'thinking out loud' patterns
+    response = re.sub(
+        r'(?i)\b(Hmm|Wait|Let me think|I think|Maybe|Possibly|Alternatively|Should I|Now I need to|So|Alright|Anyway)\b.*',
+        '',
+        response
+    ).strip()
+
+
+    # Truncate to max three short sentences
+    sentences = re.split(r'(?<=[.!?]) +', response)
+    response = " ".join(sentences[:3]).strip()
+
+    if not response.endswith(('.', '!', '?')):
+        response += '.'
+
+    # Final cleanup
+    response = response.replace('\n', ' ').strip()
     return response
 
-# WebSocket endpoint
+
 @app.websocket("/chat")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -124,7 +141,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     system_prompt = (
         "You are a helpful AI assistant. Answer the user's question concisely and accurately. "
-        "Do not explain your reasoning or thought process. Just provide the answer."
+        "Do not explain your reasoning or thought process. Just provide the answer in 1-3 complete sentences\n\n"
     )
     chat_histories[session_id] = [f"System: {system_prompt}"]
 
@@ -133,7 +150,6 @@ async def websocket_endpoint(websocket: WebSocket):
             user_input = await websocket.receive_text()
             print(f"[{session_id}] User: {user_input}")
 
-            # Track context per session (FIFO)
             chat_histories[session_id].append(f"User: {user_input}")
             if len(chat_histories[session_id]) > (MAX_HISTORY * 2 + 1):
                 chat_histories[session_id] = [chat_histories[session_id][0]] + chat_histories[session_id][-MAX_HISTORY * 2:]
@@ -145,11 +161,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
             chat_histories[session_id].append(f"Assistant: {response}")
             await log_chat(session_id, user_input, response)
-            print(f"[{session_id}] Assistant: {response}")
+            print(f"[{session_id}] Assistant: {response}")  # 🧾 Added logging here
 
-            for line in response.split("\n"):
-                if line.strip():
-                    await websocket.send_text(line.strip())
+            await websocket.send_text(response)
             await websocket.send_text("[END]")
 
             gc.collect()
