@@ -1,103 +1,77 @@
 import os
-import csv
-import io
+from flask import Flask, render_template, request, redirect, url_for, flash
+from werkzeug.utils import secure_filename
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, Request
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-import psycopg2
-from pathlib import Path
-
-# Load environment variables
-env_path = Path(__file__).resolve().parent.parent / "configuration" / ".env"
-load_dotenv(dotenv_path=env_path)
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in .env")
-
-# Connect to PostgreSQL
-conn = psycopg2.connect(DATABASE_URL)
-cursor = conn.cursor()
-
-# Create table if not exists
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS training_materials (
-        id SERIAL PRIMARY KEY,
-        question TEXT UNIQUE,
-        answer TEXT,
-        updated_at TIMESTAMP
-    )
-""")
-conn.commit()
-
-app = FastAPI()
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+from rag_db import (
+    get_all_materials,
+    insert_material,
+    delete_materials_by_ids,
+    update_material,
+    create_rag_chunks_table,
+    reprocess_embeddings_from_db
 )
+import csv
 
-# Serve static files
-static_dir = Path(__file__).resolve().parent / "static"
-app.mount("/training/static", StaticFiles(directory=static_dir), name="static")
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'upload')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+@app.route('/', methods=['GET'])
+def index():
+    materials = get_all_materials()
+    return render_template('training.html', materials=materials)
 
-@app.get("/materials")
-async def list_materials():
-    cursor.execute("SELECT id, question, answer, updated_at FROM training_materials ORDER BY updated_at DESC")
-    rows = cursor.fetchall()
-    return JSONResponse(content=[
-        {"id": row[0], "question": row[1], "answer": row[2], "updated_at": row[3].strftime("%Y-%m-%d %H:%M")}
-        for row in rows
-    ])
+@app.route('/upload', methods=['POST'])
+def upload():
+    file = request.files['file']
+    if not file:
+        flash('No file selected.', 'danger')
+        return redirect(url_for('index'))
 
+    filename = secure_filename(file.filename)
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    new_filename = f"{os.path.splitext(filename)[0]}_{timestamp}.csv"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+    file.save(filepath)
 
-@app.post("/upload")
-async def upload_csv(file: UploadFile):
-    contents = await file.read()
-    decoded = contents.decode("utf-8")
-    reader = csv.DictReader(io.StringIO(decoded))
+    added, updated = 0, 0
+    with open(filepath, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        header_skipped = False
+        for row in reader:
+            if not header_skipped:
+                header_skipped = True
+                continue
+            if len(row) >= 2:
+                question = row[0].strip()
+                answer = row[1].strip()
+                status = insert_material(question, answer)
+                if status == 'added':
+                    added += 1
+                elif status == 'updated':
+                    updated += 1
 
-    inserted, updated = 0, 0
-    for row in reader:
-        question = row["question"].strip()
-        answer = row["answer"].strip()
+    flash(f'{added} added, {updated} updated.', 'success')
+    return redirect(url_for('index'))
 
-        cursor.execute("SELECT answer FROM training_materials WHERE question = %s", (question,))
-        result = cursor.fetchone()
-
-        if result:
-            if result[0] != answer:
-                cursor.execute(
-                    "UPDATE training_materials SET answer = %s, updated_at = %s WHERE question = %s",
-                    (answer, datetime.now(), question)
-                )
-                updated += 1
-        else:
-            cursor.execute(
-                "INSERT INTO training_materials (question, answer, updated_at) VALUES (%s, %s, %s)",
-                (question, answer, datetime.now())
-            )
-            inserted += 1
-
-    conn.commit()
-    return JSONResponse(content={"inserted": inserted, "updated": updated})
-
-
-@app.post("/delete-materials")
-async def delete_materials(request: Request):
-    data = await request.json()
-    ids = data.get("ids", [])
-
+@app.route('/delete_selected', methods=['POST'])
+def delete_selected():
+    ids = request.form.getlist('selected_ids[]')
     if ids:
-        cursor.execute("DELETE FROM training_materials WHERE id = ANY(%s)", (ids,))
-        conn.commit()
+        ids = list(map(int, ids))  # Cast to integers
+        delete_materials_by_ids(ids)
+        flash(f'{len(ids)} item(s) deleted.', 'success')
+    else:
+        flash('No items selected.', 'warning')
+    return redirect(url_for('index'))
 
-    return JSONResponse(content={"deleted": ids})
+@app.route('/reprocess_chunks', methods=['POST'])
+def reprocess_chunks():
+    reprocess_embeddings_from_db()
+    flash('Reprocessed all embeddings.', 'success')
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
