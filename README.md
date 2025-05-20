@@ -1,85 +1,103 @@
 
 # LLM Chatbot
-- A lightweight AI chatbot built with LLM, designed for easy deployment and testing—even on systems without GPU support.
-- model used: 
-      DeepSeek-R1-Distill-Qwen-1.5B
-      all-MiniLM-L6-v2
+A lightweight AI chatbot built with LLM, designed for easy deployment and testing—even on systems without GPU support.
 
+## Model used
+|Model  |Purpose  |Hardware Requirements  |
+|-------|---------|-----------------------|
+| `DeepSeek-R1-Distill-Qwen-1.5B` | Core LLM inference | CPU (GPU optional) |
+| `all-MiniLM-L6-v2` | Sentence embeddings for RAG | CPU-efficient |
 
-Features
-- Local & GPU-Free Inference – Runs efficiently on CPU-only environments for testing.
-- WebSocket Support – Real-time interactive chat via WebSocket connections.
-- Conversation Persistence – Stores chat history in PostgreSQL for continuity.
-- Dockerized Deployment – Easy setup and scaling using Docker.
-- REST API Endpoint – Simple HTTP-based interaction for remote queries.
+## Features
 
-Installation
+- **CPU-Friendly Inference** - Runs efficiently without GPU support using `DeepSeek-R1-Distill-Qwen-1.5B`
+- **Real-Time Interaction** - WebSocket support for live chat experiences
+- **Conversation History** - PostgreSQL-backed chat persistence
+- **Easy Deployment** - Docker container support for simplified setup
+- **API Integration** - REST endpoint for programmatic access
+- **RAG Support** - Retrieval-Augmented Generation with `all-MiniLM-L6-v2` embeddings
 
-My Environment:
+## Installation
+
+### My Environment:
 - Windows 11 pro, CPU: Intel(R) Core(TM) i5-8365U CPU, RAM 16G
 - VM in VMWare Workstation: 4C/8G/50G Ubuntu
 
-Clone the repository:
+### Clone the repository:
 git clone https://github.com/dalu810/LLM-Chatbot.git
 
-Install dependencies:
+### Install dependencies:
 (Include a requirements.txt or instructions for pip/poetry if applicable.)
 
+## Project Structure
+```
+📁LLM-Chatbot/
+├── 📁admin/              # User conversation management dashboard
+├── 📁chatbot/            # Core chatbot interface with PostgreSQL
+├── 📁configuration/      # Environment and config files
+├── 📁upload/             # Training material upload portal
+├── 📁training/           # RAG processing with sentence-transformers
+├── 📁training_test/      # RAG feature testing
+├── 📁test/               # Local LLM validation tests
+└── 📁websocket/          # WebSocket communication layer
+```
 
-Usage
+## Usage
 
-LLM-Chatbot/
-
-- admin/
-- upload/
-- training/
-- training_test/
-- configuration/
-- chatbot/
-- test/
-- websocket/
-
-
-admin # Search/Delete/Select/Retentin support for the records of user question/AI response
+### admin
+```
     server: python3 admin_dashboard.py
     browser: http://server_IP:8010/admin/static/dashboard.html
-
-chatbot # Chatbot with PostgreSQL 
+```
+### chatbot
+```
     server: python3 chatbot.py
     browser: http://server_IP:8000/chatbot/static/chat.html
 
     server: python3 chatbot_db.py
     browser: http://server_IP:8000/chatbot/static/chat.html
+```
 
-configuration # Configuration file, .env and so on.
+### configuration
 
-upload # Upload/update training materials to Chatbot 
+### upload
+```
     server: python3 upload_dashboard.py
     browser: http://server_IP:8020/upload/static/upload.html
-
-training # Add RAG support for training material reprocessing by sentence-transformers/all-MiniLM-L6-v2 
+```
+### training
+```
     server: python3 training_dashboard.py
     browser: http://server_IP:5000
+```
 
-training_test # Test RAG feature according to training materials
+### training_test
+```
     server: python3 test_chatbot.py
     browser: http://server_IP:5000
+```
 
-test # Test the local LLM installed
+### test
+```
     python3 deepseek_testing.py	
 
     python3 deepseek_chatting.py
     uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
 
     python3 deepseek_remote.py
-    curl -X POST "http://<SERVER_IP>:8000/chat/" -H "Content-Type: application/json" -d '{"prompt": "What is AI?"}'
-    
-websocket # Add WebSocat for chatting with LLM 
+    curl -X POST "http://<SERVER_IP>:8000/chat/"\ 
+         -H "Content-Type: application/json"\ 
+         -d '{"prompt":"What is AI?"}'
+```
+
+### websocket
+```
     server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
     client: websocat ws://localhost:8000/chat
+```
 
 
-Notes on models:
+##  Notes on models:
 
-- all-MiniLM-L6-v2: which is used for sentence transformers
-- DeepSeek-R1-Distill-Qwen-1.5B, which is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.
+- **all-MiniLM-L6-v2**, which is used for sentence transformers
+- **DeepSeek-R1-Distill-Qwen-1.5B**, which is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.
