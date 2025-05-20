@@ -1,7 +1,10 @@
 
 # LLM Chatbot
 - A lightweight AI chatbot built with LLM, designed for easy deployment and testing—even on systems without GPU support.
-- Recently model used: DeepSeek-R1-Distill-Qwen-1.5B 
+- model used: 
+      DeepSeek-R1-Distill-Qwen-1.5B
+      all-MiniLM-L6-v2
+
 
 Features
 - Local & GPU-Free Inference – Runs efficiently on CPU-only environments for testing.
@@ -28,63 +31,55 @@ Usage
 LLM-Chatbot/
 
 - admin/
-  - static/
-  - admin_dashboard.py
 - upload/
-  - static/
-  - upload_dashboard.py
+- training/
+- training_test/
 - configuration/
-  - .env
 - chatbot/
-  - static/
-  - chatbot.py
-  - chatbot_db.py
 - test/
-  - deepseek_testing.py
-  - deepseek_chatting.py
-  - test.deepseek_remote.py
 - websocket/
-  - fastapi_websocket.py
-
-In test folder:
-Local model testing with hardcoded queries
-- deepseek_testing.py	
-
-Local model testing, interactive CLI chat
-- deepseek_chatting.py	
-
-Remote: 
-- uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
-
-Test remotely, query example:
-curl -X POST "http://<SERVER_IP>:8000/chat/" \
-     -H "Content-Type: application/json" \
-     -d '{"prompt": "What is AI?"}'
-- deepseek_remote.py
-
-In websocket folder
-- server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
-- client: websocat ws://localhost:8000/chat
-
-In chatbot folder
-
-Chatbot without database
-- server: python3 chatbot.py
-- browser: http://server_IP:8000/chatbot/static/chat.html
-
-Chatbot with PostgreSQL
-- server: python3 chatbot_db.py
-- browser: http://server_IP:8000/chatbot/static/chat.html
-
-In admin folder
-- server: python3 admin_dashboard.py
-- browser: http://server_IP:8010/admin/static/dashboard.html
-
-In upload folder
-- server: python3 upload_dashboard.py
-- browser: http://server_IP:8020/upload/static/upload.html
 
 
+admin # Search/Delete/Select/Retentin support for the records of user question/AI response
+    server: python3 admin_dashboard.py
+    browser: http://server_IP:8010/admin/static/dashboard.html
 
-Notes
-The model DeepSeek-R1-Distill-Qwen-1.5B is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.
+chatbot # Chatbot with PostgreSQL 
+    server: python3 chatbot.py
+    browser: http://server_IP:8000/chatbot/static/chat.html
+
+    server: python3 chatbot_db.py
+    browser: http://server_IP:8000/chatbot/static/chat.html
+
+configuration # Configuration file, .env and so on.
+
+upload # Upload/update training materials to Chatbot 
+    server: python3 upload_dashboard.py
+    browser: http://server_IP:8020/upload/static/upload.html
+
+training # Add RAG support for training material reprocessing by sentence-transformers/all-MiniLM-L6-v2 
+    server: python3 training_dashboard.py
+    browser: http://server_IP:5000
+
+training_test # Test RAG feature according to training materials
+    server: python3 test_chatbot.py
+    browser: http://server_IP:5000
+
+test # Test the local LLM installed
+    python3 deepseek_testing.py	
+
+    python3 deepseek_chatting.py
+    uvicorn deepseek_remote:app --host 0.0.0.0 --port 8000
+
+    python3 deepseek_remote.py
+    curl -X POST "http://<SERVER_IP>:8000/chat/" -H "Content-Type: application/json" -d '{"prompt": "What is AI?"}'
+    
+websocket # Add WebSocat for chatting with LLM 
+    server: uvicorn fastapi_websocket:app --host 0.0.0.0 --port 8000
+    client: websocat ws://localhost:8000/chat
+
+
+Notes on models:
+
+- all-MiniLM-L6-v2: which is used for sentence transformers
+- DeepSeek-R1-Distill-Qwen-1.5B, which is optimized for low-resource environments, but it is slow without GPU support, just for the user who is interested in LLM usage locally.
