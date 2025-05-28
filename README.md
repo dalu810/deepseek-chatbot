@@ -33,7 +33,8 @@ git clone https://github.com/dalu810/LLM-Chatbot.git
 ```
 📁LLM-Chatbot/
 ├── 📁admin/              # User conversation management dashboard
-├── 📁chatbot/            # Core chatbot interface with PostgreSQL
+├── 📁chatbot/            # chatbot interface with PostgreSQL
+├── 📁chatbot_2_models/   # Core chatbot interface supported by training materials and LLM
 ├── 📁configuration/      # Environment and config files
 ├── 📁upload/             # Training material upload portal
 ├── 📁training/           # RAG processing with sentence-transformers
@@ -56,6 +57,12 @@ git clone https://github.com/dalu810/LLM-Chatbot.git
 
     server: python3 chatbot_db.py
     browser: http://server_IP:8000/chatbot/static/chat.html
+```
+### chatbot_2_models
+```
+    server: python3 main.py
+    browser: http://server_IP:8000/
+
 ```
 
 ### configuration

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG + LLM Chat</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="chat-container">
+        <h2>RAG + LLM Chat</h2>
+        <div class="model-indicator">
+            <span class="rag-indicator">Knowledge Base</span>
+            <span class="llm-indicator">DeepSeek LLM</span>
+        </div>
+        <div id="chat-box" class="chat-box"></div>
+        <div id="processing-indicator" class="processing-indicator" style="display: none;">Processing your question...</div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Ask a question..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+    <script src="/static/chat.js"></script>
+</body>
+</html>
